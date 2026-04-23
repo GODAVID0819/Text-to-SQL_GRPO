@@ -67,14 +67,6 @@ Several reward choices are possible.
 ### Record F1 reward
 Use the record-level F1 score between predicted and gold query results. This provides a smoother signal than binary correctness and is likely better for early experiments.
 
-### Shaped reward
-A more structured alternative:
-- negative reward for SQL execution failure
-- zero reward for executable but wrong queries
-- positive reward proportional to record F1 for partially or fully correct queries
-
-For the first version, **record F1** is the recommended reward because it gives more informative gradients than strict 0/1 feedback.
-
 ## Group Structure in GRPO
 
 For each natural language input `x`, generate a group of candidate outputs:
