@@ -5,34 +5,55 @@ import torch
 import transformers
 from transformers import T5ForConditionalGeneration, T5Config
 from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
-import wandb
 
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 MODEL_NAME = 'google-t5/t5-small'
 DECODER_BOS_TOKEN_ID = 32099  # <extra_id_0> for T5
 
 
-def setup_wandb(args):
-    wandb.init(project='cs2590-hw4-t5', name=args.experiment_name, config=vars(args))
+
+
+def _set_t5_special_tokens(model):
+    model.config.decoder_start_token_id = DECODER_BOS_TOKEN_ID
+    model.generation_config.decoder_start_token_id = DECODER_BOS_TOKEN_ID
+    return model
 
 
 def initialize_model(args):
-    '''
-    Helper function to initialize the model. You should be either finetuning
-    the pretrained model associated with the 'google-t5/t5-small' checkpoint
-    or training a T5 model initialized with the 'google-t5/t5-small' config
-    from scratch.
-    '''
-    if args.finetune:
+    init_checkpoint = getattr(args, 'init_checkpoint', None)
+    if init_checkpoint:
+        model = T5ForConditionalGeneration.from_pretrained(init_checkpoint)
+    elif args.finetune:
         model = T5ForConditionalGeneration.from_pretrained(MODEL_NAME)
     else:
         config = T5Config.from_pretrained(MODEL_NAME)
         model = T5ForConditionalGeneration(config)
 
-    model.config.decoder_start_token_id = DECODER_BOS_TOKEN_ID
-    model.generation_config.decoder_start_token_id = DECODER_BOS_TOKEN_ID
+    _set_t5_special_tokens(model)
     model.to(DEVICE)
     return model
+
+
+def initialize_reference_model(args, model=None):
+    ref_checkpoint = getattr(args, 'ref_checkpoint', None) or getattr(args, 'init_checkpoint', None)
+
+    if ref_checkpoint:
+        ref_model = T5ForConditionalGeneration.from_pretrained(ref_checkpoint)
+    elif model is not None:
+        import copy
+        ref_model = copy.deepcopy(model)
+    elif args.finetune:
+        ref_model = T5ForConditionalGeneration.from_pretrained(MODEL_NAME)
+    else:
+        config = T5Config.from_pretrained(MODEL_NAME)
+        ref_model = T5ForConditionalGeneration(config)
+
+    _set_t5_special_tokens(ref_model)
+    ref_model.to(DEVICE)
+    ref_model.eval()
+    for p in ref_model.parameters():
+        p.requires_grad = False
+    return ref_model
 
 
 def mkdir(dirpath):
@@ -50,14 +71,12 @@ def save_model(checkpoint_dir, model, best):
     model.save_pretrained(save_dir)
 
 
-
 def load_model_from_checkpoint(args, best):
     model_type = 'ft' if args.finetune else 'scr'
     checkpoint_dir = os.path.join('checkpoints', f'{model_type}_experiments', args.experiment_name)
     load_dir = os.path.join(checkpoint_dir, 'best' if best else 'last')
     model = T5ForConditionalGeneration.from_pretrained(load_dir)
-    model.config.decoder_start_token_id = DECODER_BOS_TOKEN_ID
-    model.generation_config.decoder_start_token_id = DECODER_BOS_TOKEN_ID
+    _set_t5_special_tokens(model)
     model.to(DEVICE)
     return model
 
@@ -96,7 +115,6 @@ def initialize_optimizer(args, model):
     return optimizer
 
 
-
 def initialize_scheduler(args, optimizer, epoch_length):
     num_training_steps = epoch_length * args.max_n_epochs
     num_warmup_steps = epoch_length * args.num_warmup_epochs
@@ -109,7 +127,6 @@ def initialize_scheduler(args, optimizer, epoch_length):
         return transformers.get_linear_schedule_with_warmup(optimizer, num_warmup_steps, num_training_steps)
     else:
         raise NotImplementedError
-
 
 
 def get_parameter_names(model, forbidden_layer_types):
