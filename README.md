@@ -1,6 +1,6 @@
 # GRPO for Text-to-SQL with Verifiable Rewards
 
-This project extends a supervised T5 text-to-SQL pipeline into a reinforcement learning setup using **GRPO** (Group Relative Policy Optimization). The main goal is to improve SQL generation quality by optimizing directly for **execution-based correctness**, rather than only token-level supervised loss.
+This project extends a supervised T5 text-to-SQL pipeline into a reinforcement learning setup using GRPO (Group Relative Policy Optimization). The main goal is to improve SQL generation quality by optimizing directly for execution-based correctness, rather than only token-level supervised loss.
 
 ## Motivation
 
@@ -25,7 +25,7 @@ The existing training loop uses gold decoder inputs and minimizes standard seque
 
 ## Why GRPO
 
-GRPO is a natural choice for this setting because it does not require a learned reward model. Instead, it uses **verifiable rewards** computed directly from generated outputs.
+GRPO is a natural choice for this setting because it does not require a learned reward model. Instead, it uses verifiable rewards computed directly from generated outputs.
 
 For each input question:
 
@@ -102,18 +102,9 @@ In practice, this means:
 
 ## Role of the Reference Model
 
-To stabilize RL training, a frozen copy of the SFT model can be used as a **reference policy**. A KL penalty discourages the updated policy from drifting too far away from the original supervised model.
+To stabilize RL training, a frozen copy of the SFT model can be used as a reference policy. A KL penalty is added to discourage the updated policy from drifting too far away from the original supervised model.
 
-This is important because pure RL can otherwise:
-- overfit reward quirks
-- collapse output quality
-- drift toward degenerate SQL patterns
-
-So the recommended setup is:
-- trainable current policy
-- frozen SFT reference model
-- small KL regularization term
 
 ## Summary
 
-This project explores how to turn a supervised T5 text-to-SQL system into a reinforcement learning pipeline using GRPO and verifiable rewards. Because SQL outputs can be executed and checked directly, the task is well suited to RL without a learned reward model. The overall objective is to improve execution correctness by training on sampled outputs and relative outcome-based feedback, while keeping the model anchored to a strong supervised baseline.
+This project explores how to turn a supervised T5 text-to-SQL system into a reinforcement learning pipeline using GRPO and verifiable rewards. Because SQL outputs can be executed and checked directly, the task is well-suited to RL without a learned reward model. The overall objective is to improve execution correctness by training on sampled outputs and relative outcome-based feedback, while keeping the model anchored to a strong supervised baseline.
